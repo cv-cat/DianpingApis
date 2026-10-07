@@ -8,23 +8,24 @@ from typing import TYPE_CHECKING
 from .errors import AccessRequired
 
 if TYPE_CHECKING:
-    from playwright.sync_api import BrowserContext, Page, Playwright
+    from playwright.sync_api import Browser, BrowserContext, Page, Playwright
 
 
 NOTE_URL = "https://www.dianping.com/note/create"
 
 
 class DianpingAuth:
-    """Own a persistent Chrome context. The user completes login in its window.
+    """Own a Chrome context. The user completes login in its window.
 
-    `user_data_dir` holds browser cookies and must remain outside the Git tree.
-    Use a separate directory for each account and call ``close`` when finished.
+    A `user_data_dir` holds browser cookies and must remain outside the Git tree.
+    Pass None for an in-memory context that discards cookies on close.
     """
 
-    def __init__(self, user_data_dir: str | Path, *, headless: bool = False):
-        self.user_data_dir = Path(user_data_dir).expanduser().resolve()
+    def __init__(self, user_data_dir: str | Path | None = None, *, headless: bool = False):
+        self.user_data_dir = Path(user_data_dir).expanduser().resolve() if user_data_dir is not None else None
         self.headless = headless
         self._playwright: Playwright | None = None
+        self._browser: Browser | None = None
         self.context: BrowserContext | None = None
         self.page: Page | None = None
 
@@ -33,14 +34,24 @@ class DianpingAuth:
             return self
         from playwright.sync_api import sync_playwright
 
-        self.user_data_dir.mkdir(parents=True, exist_ok=True)
         self._playwright = sync_playwright().start()
         try:
-            self.context = self._playwright.chromium.launch_persistent_context(
-                str(self.user_data_dir), channel="chrome", headless=self.headless
-            )
+            if self.user_data_dir is None:
+                self._browser = self._playwright.chromium.launch(channel="chrome", headless=self.headless)
+                self.context = self._browser.new_context()
+            else:
+                self.user_data_dir.mkdir(parents=True, exist_ok=True)
+                self.context = self._playwright.chromium.launch_persistent_context(
+                    str(self.user_data_dir), channel="chrome", headless=self.headless
+                )
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
         except Exception:
+            if self.context is not None:
+                self.context.close()
+                self.context = None
+            if self._browser is not None:
+                self._browser.close()
+                self._browser = None
             self._playwright.stop()
             self._playwright = None
             raise
@@ -96,6 +107,9 @@ class DianpingAuth:
             self.context.close()
             self.context = None
             self.page = None
+        if self._browser is not None:
+            self._browser.close()
+            self._browser = None
         if self._playwright is not None:
             self._playwright.stop()
             self._playwright = None

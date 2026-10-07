@@ -8,9 +8,9 @@
 
 | 能力 | 入口 | 当前状态 |
 | --- | --- | --- |
-| 登录 | `DianpingAuth.login()` 打开官网登录页，由用户在浏览器扫码或输入；`from_cookie()` 导入自有 Cookie | 本人 Chrome 的[扫码请求链](docs/qr_login.md)已核对；库使用独立持久浏览器配置，尚未以该配置端到端复测 |
-| 搜索 | `DianpingAPI.search()` 解析网站搜索页链接 | 登录 Chrome 中已实测 `/search/keyword/...` 返回店铺结果；匿名请求进入验证中心。`kind="note"` 仅过滤页面里的笔记链接，笔记搜索覆盖尚未验证 |
-| Item | `get_shop()`、`get_item()` 读取店铺、笔记、点评页 | 公开店铺页样本可解析；笔记和点评页尚缺可靠实测，部分页面跳登录或 App |
+| 登录 | `DianpingAuth.login()` 打开官网登录页，由用户在浏览器扫码或输入；`from_cookie()` 导入自有 Cookie | 本人 Chrome 的[扫码请求链](docs/qr_login.md)已核对；用临时浏览器配置导入当前登录态，`require_login()` 实测通过，匿名配置被阻断。独立窗口里直接扫码的流程尚未复测 |
+| 搜索 | `DianpingAPI.search()` 解析网站搜索页链接 | 登录态导入临时浏览器后，仓库方法实测返回 15 个店铺结果；匿名请求进入验证中心。`kind="note"` 仅过滤页面里的笔记链接，笔记搜索覆盖尚未验证 |
+| Item | `get_shop()`、`get_item()` 读取店铺、笔记、点评页 | 上述搜索首个店铺由仓库 `get_item()` 实测读到匹配 ID、非空标题及描述；笔记和点评页尚缺可靠实测，部分页面跳登录或 App |
 | 探店笔记 | `DianpingCreatorAPI.publish_note()` | `/note/create` 实为笔记详情路由，不是编辑器；方法抛 `PublishingUnavailable`。App 发布流程待对接 |
 | 店铺点评 | `DianpingCreatorAPI.publish_review()` | 登录网页店铺页提示打开 App，没有写点评控件；方法抛 `PublishingUnavailable` |
 
@@ -22,7 +22,7 @@
 python -m pip install -e .
 ```
 
-使用可见 Chrome。首次登录时在浏览器窗口内完成官方扫码、短信或其他验证。Cookie 保存在传入的 `user_data_dir`，请把它放在仓库外。
+使用可见 Chrome。首次登录时在浏览器窗口内完成官方扫码、短信或其他验证。传入 `user_data_dir` 时，Cookie 保存在该浏览器配置中，请把它放在仓库外。传入 `None` 时使用临时内存配置，关闭后丢弃登录态。
 
 ```python
 from dianping_apis import DianpingAPI, DianpingAuth, DianpingCreatorAPI
@@ -51,6 +51,19 @@ creator.publish_review(
 
 `from_cookie(cookie_header)` 可导入自己已有的 Cookie；不会把 Cookie 写进源代码或日志。导入后也需确认账号实际登录。`get_item()` 仅接受大众点评 HTTPS 店铺、笔记、点评链接；目标跳转到其他页面或其他 Item 时会报错，`/note/create` 不视为笔记 Item。
 
+只需运行一次采集、不希望留下浏览器配置时，可以在临时内存配置中导入本人当前会话的 Cookie：
+
+```python
+with DianpingAuth(None, headless=True) as auth:
+    auth.from_cookie(cookie_header)
+    api = DianpingAPI(auth)
+    results = api.search("咖啡", city_id=1)
+    if results:
+        print(api.get_item(results[0].url))
+```
+
+[登录到采集的实测记录](docs/login_collect_acceptance.md)只记录状态和字段是否存在，不含账号、Cookie 或页面正文。
+
 ## 现有证据与限制
 
 - [大众点评帮助中心](https://kf.dianping.com/csCenter/app/questions/17373)列出 App 中写点评的三个官方入口。
@@ -66,4 +79,4 @@ python -m pip install -e '.[test]'
 python -m pytest -q
 ```
 
-测试验证 URL 约束、搜索结果解析、验证墙检测、详情解析，以及未验证发布入口时不触发写入。独立浏览器配置的真实登录仍待端到端验证；测试套件不会发布内容。
+测试验证 URL 约束、搜索结果解析、验证墙检测、详情解析、临时配置不落盘，以及未验证发布入口时不触发写入。独立持久浏览器配置的扫码登录仍待端到端验证；测试套件不会发布内容。
