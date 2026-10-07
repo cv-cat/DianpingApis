@@ -15,6 +15,7 @@ class Item:
     title: str
     url: str
     description: str = ""
+    content: str = ""
 
 
 @dataclass(frozen=True)

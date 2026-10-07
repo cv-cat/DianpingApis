@@ -80,3 +80,35 @@ def test_item_redirect_to_homepage_does_not_return_homepage_as_shop():
     page = FakePage("<title>大众点评网 - 发现好去处</title>", redirect_to="https://m.dianping.com/")
     with pytest.raises(ElementMissing, match="redirected"):
         DianpingAPI(page).get_shop("563754")
+
+
+def test_discovery_feed_filter_and_note_item_content():
+    feed = '''<script>window.__dx_dump__={"dump":{"3":{"feedList":[7,8]},
+        "7":{"contentId":123,"titleInfo":{"title":"咖啡探店"}},
+        "8":{"contentId":456,"titleInfo":{"title":"火锅探店"}}},"entries":[]};</script>'''
+    page = FakePage(feed)
+    matches = DianpingAPI(page).search("咖啡", kind="note")
+    assert [(x.id, x.url) for x in matches] == [("123", "https://m.dianping.com/discovery/123")]
+    assert page.url == "https://www.dianping.com/discovery/"
+
+    page.html = '''<title>咖啡探店 - 大众点评</title><meta name="description" content="笔记摘要">
+        <div id="review"><h1 class="review-title">咖啡探店</h1>
+        <div class="content-wrapper"><p>真实的笔记正文</p></div></div>'''
+    item = DianpingAPI(page).get_item(matches[0].url)
+    assert (item.kind, item.id, item.title, item.content) == ("note", "123", "咖啡探店", "真实的笔记正文")
+
+
+def test_discovery_note_requires_actual_content_not_generic_page():
+    page = FakePage('<title>大众点评网 - 发现好去处</title><h1>推荐内容</h1>')
+    with pytest.raises(ElementMissing, match="note title and content"):
+        DianpingAPI(page).get_item("https://m.dianping.com/discovery/123")
+    with pytest.raises(ValueError):
+        _validate_item_url("https://m.dianping.com/discovery/p2")
+    with pytest.raises(ValueError):
+        _validate_item_url("https://www.dianping.com/review/123/unrelated")
+
+
+def test_generic_review_landing_is_not_item_detail():
+    page = FakePage('<title>大众点评网 - 发现好去处</title><h1>推荐内容</h1>')
+    with pytest.raises(ElementMissing, match="did not expose item details"):
+        DianpingAPI(page).get_item("https://www.dianping.com/review/123")

@@ -9,8 +9,8 @@
 | 能力 | 入口 | 当前状态 |
 | --- | --- | --- |
 | 登录 | `DianpingAuth.login()` 打开官网登录页，由用户在浏览器扫码或输入；`from_cookie()` 导入自有 Cookie | 本人 Chrome 的[扫码请求链](docs/qr_login.md)已核对；用临时浏览器配置导入当前登录态，`require_login()` 实测通过，匿名配置被阻断。独立窗口里直接扫码的流程尚未复测 |
-| 搜索 | `DianpingAPI.search()` 解析网站搜索页链接 | 登录态导入临时浏览器后，仓库方法实测返回 15 个店铺结果；匿名请求进入验证中心。`kind="note"` 仅过滤页面里的笔记链接，笔记搜索覆盖尚未验证 |
-| Item | `get_shop()`、`get_item()` 读取店铺、笔记、点评页 | 上述搜索首个店铺由仓库 `get_item()` 实测读到匹配 ID、非空标题及描述；笔记和点评页尚缺可靠实测，部分页面跳登录或 App |
+| 搜索 | `DianpingAPI.search()` 解析店铺搜索页；`kind="note"` 筛选官方内容精选流第一页的标题 | 登录态店铺搜索实测返回 15 条；公开内容精选流里“咖啡”匹配 2 条。笔记路径只筛选当前精选流，不是全站关键词搜索 |
+| Item | `get_shop()`、`get_item()` 读取店铺及内容精选笔记 | 店铺 Item 实测 ID 匹配、标题和描述非空；公开内容精选页的笔记 Item 实测 ID 匹配、标题及正文非空。`/note/{id}` 与 `/review/{id}` 的独立详情仍受网页验证限制 |
 | 探店笔记 | `DianpingCreatorAPI.publish_note()` | `/note/create` 实为笔记详情路由，不是编辑器；方法抛 `PublishingUnavailable`。App 发布流程待对接 |
 | 店铺点评 | `DianpingCreatorAPI.publish_review()` | 登录网页店铺页提示打开 App，没有写点评控件；方法抛 `PublishingUnavailable` |
 
@@ -49,7 +49,18 @@ creator.publish_review(
 )
 ```
 
-`from_cookie(cookie_header)` 可导入自己已有的 Cookie；不会把 Cookie 写进源代码或日志。导入后也需确认账号实际登录。`get_item()` 仅接受大众点评 HTTPS 店铺、笔记、点评链接；目标跳转到其他页面或其他 Item 时会报错，`/note/create` 不视为笔记 Item。
+`from_cookie(cookie_header)` 可导入自己已有的 Cookie；不会把 Cookie 写进源代码或日志。导入后也需确认账号实际登录。`get_item()` 仅接受大众点评 HTTPS 店铺、笔记、点评及内容精选详情链接；目标跳转到其他页面或其他 Item 时会报错，`/note/create` 不视为笔记 Item。
+
+读取官方内容精选流第一页的笔记：
+
+```python
+notes = api.search("咖啡", kind="note")
+if notes:
+    note = api.get_item(notes[0].url)
+    print(note.title, note.content)
+```
+
+该路径读取 `https://www.dianping.com/discovery/` 列表与 `https://m.dianping.com/discovery/{id}` 详情。只在列表页现有条目中过滤标题；页面结构变化时会抛 `ElementMissing`，不会把通用落地页当笔记详情。
 
 只需运行一次采集、不希望留下浏览器配置时，可以在临时内存配置中导入本人当前会话的 Cookie：
 
@@ -71,6 +82,7 @@ with DianpingAuth(None, headless=True) as auth:
 - `https://www.dianping.com/note/create` 匿名访问会跳到 `account.dianping.com/pclogin`；扫码登录后仅显示“去查看/相关推荐”。页面数据把 `create` 当作笔记 ID，详见[网页发布入口核查](docs/web_publish_audit.md)。
 - `https://www.dianping.com/search/keyword/1/0_咖啡` 匿名访问进入验证中心；在扫码登录的 Chrome 中返回店铺结果，源码按店名链接解析。
 - 登录后的网页店铺页展示详情和评论，并提示打开 App；当前没有网页写点评控件。[官方帮助中心](https://kf.dianping.com/csCenter/app/questions/17373)将写点评入口列在 App 内。
+- [内容精选列表](https://www.dianping.com/discovery/)的公开页面数据含笔记 ID 和标题；其[移动详情页](https://m.dianping.com/discovery/2439771143)有独立标题与正文。已做一次公开 HTTP 的列表筛选到详情实测，详见[采集验收记录](docs/login_collect_acceptance.md)。这条路径不覆盖店铺点评详情和全站笔记搜索。
 
 ## 测试
 

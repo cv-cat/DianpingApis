@@ -11,3 +11,9 @@
 | 测试套件 | `python -m pytest -q`：13 passed |
 
 这验证了已有登录态导入后的“认证 → 店铺搜索 → 店铺 Item”只读闭环。独立持久窗口里的扫码登录、笔记搜索与笔记/点评 Item 未纳入本次实测；消费者 Web 发布入口仍未核实。
+
+## 内容精选笔记读取
+
+另用公开 HTTP（无 Cookie）访问官方 `https://www.dianping.com/discovery/`，从页面内 `window.__dx_dump__` 读取当前精选流条目；用仓库 `DianpingAPI.search("咖啡", kind="note")` 筛选标题，得到 2 条。取首条 `https://m.dianping.com/discovery/{id}`，仓库 `get_item()` 读到相同 ID、`kind=note`、20 字标题和 283 字正文。该实测使用只读 HTTP 页面适配器调用仓库 API；没有测试带登录态的 Playwright 浏览器笔记流程，也不是全站关键词检索。脚本位于任务工作目录 `dianping_content_gap/live_discovery_probe.py`。
+
+`/review/{id}` 的公开 HTTP 请求重定向至 `verify.meituan.com`，`/note/{id}` 当前返回 403，因此店铺点评 Item 和原生笔记详情仍未完成在线闭环。通用“发现好去处”页面现在会被识别为 `ElementMissing`，避免误判为内容详情。
