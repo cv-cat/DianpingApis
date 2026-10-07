@@ -22,6 +22,8 @@ from .errors import AccessRequired, DianpingError
 
 NOTE_URL = "https://www.dianping.com/note/create"
 LOGIN_PAGE_URL = "https://account.dianping.com/pclogin"
+ACCOUNT_ORIGIN = "https://account.dianping.com"
+ACCOUNT_REFERER = "https://account.dianping.com/"
 CACHE_TOKEN_URL = "https://msp.meituan.com/web/cache-token"
 CACHE_TOKEN_P_URL = "https://msp.meituan.com/web/cache-token-p"
 CHECK_LOGIN_URL = "https://m.dianping.com/account/ajax/checkLogin"
@@ -199,8 +201,8 @@ class DianpingAuth:
         """
         common_headers = {
             "Accept": "*/*",
-            "Origin": "https://account.dianping.com",
-            "Referer": f"{LOGIN_PAGE_URL}/",
+            "Origin": ACCOUNT_ORIGIN,
+            "Referer": ACCOUNT_REFERER,
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
@@ -243,7 +245,7 @@ class DianpingAuth:
             headers={
                 "Accept": "*/*",
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "Origin": "https://account.dianping.com",
+                "Origin": ACCOUNT_ORIGIN,
                 "Referer": f"{LOGIN_PAGE_URL}/",
                 "X-Requested-With": "XMLHttpRequest",
                 "Sec-Fetch-Dest": "empty",
@@ -297,8 +299,8 @@ class DianpingAuth:
             params=params,
             headers={
                 "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-                "Origin": "https://account.dianping.com",
-                "Referer": f"{LOGIN_PAGE_URL}/",
+                "Origin": ACCOUNT_ORIGIN,
+                "Referer": ACCOUNT_REFERER,
                 "Sec-Fetch-Dest": "image",
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-site",
@@ -358,8 +360,8 @@ class DianpingAuth:
                 params=params,
                 headers={
                     "Accept": "application/json, text/plain, */*",
-                    "Origin": "https://account.dianping.com",
-                    "Referer": f"{LOGIN_PAGE_URL}/",
+                    "Origin": ACCOUNT_ORIGIN,
+                    "Referer": ACCOUNT_REFERER,
                     "Sec-Fetch-Dest": "empty",
                     "Sec-Fetch-Mode": "cors",
                     "Sec-Fetch-Site": "same-site",
