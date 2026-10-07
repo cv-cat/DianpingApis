@@ -96,11 +96,11 @@ class DianpingAPI:
 
     @staticmethod
     def _text_response(response: Any) -> str:
-        text = getattr(response, "text", None)
-        if isinstance(text, str):
-            return text
         raw = getattr(response, "content", b"")
-        return raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8", errors="replace")
+        text = getattr(response, "text", None)
+        return text if isinstance(text, str) else str(raw)
 
     def _check_access(self, response: Any) -> None:
         status = self._status(response)
@@ -181,7 +181,7 @@ class DianpingAPI:
         url = DISCOVERY_CATEGORY_URL.format(category_id=category_id) if category_id is not None else DISCOVERY_URL
         if page > 1:
             url = url.rstrip("/") + f"/p{page}"
-        return _discovery_results(self._get(url).text, keyword.strip())
+        return _discovery_results(self._text_response(self._get(url)), keyword.strip())
 
     def get_item(self, url: str) -> Item:
         """Read a shop, review or note URL supplied by the caller."""

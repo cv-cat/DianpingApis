@@ -120,11 +120,11 @@ class DianpingAuth:
 
     @staticmethod
     def _response_text(response: Any) -> str:
-        text = getattr(response, "text", None)
-        if isinstance(text, str):
-            return text
         raw = getattr(response, "content", b"")
-        return raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8", errors="replace")
+        text = getattr(response, "text", None)
+        return text if isinstance(text, str) else str(raw)
 
     @classmethod
     def _is_challenge_response(cls, response: Any) -> bool:
