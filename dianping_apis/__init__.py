@@ -1,14 +1,9 @@
-"""Dianping browser API wrappers.
-
-The public consumer site does not expose a documented publishing API.  These
-clients operate the user's authenticated browser session instead of guessing
-private HTTP endpoints.
-"""
+"""Dianping browser API wrappers and explicit publishing boundaries."""
 
 from .auth import DianpingAuth
 from .client import DianpingAPI
 from .creator import DianpingCreatorAPI
-from .errors import AccessRequired, DianpingError, ElementMissing, SubmissionUnconfirmed
+from .errors import AccessRequired, DianpingError, ElementMissing, PublishingUnavailable, SubmissionUnconfirmed
 from .models import Item, SearchResult, SubmissionResult
 
 __all__ = [
@@ -19,6 +14,7 @@ __all__ = [
     "DianpingError",
     "ElementMissing",
     "Item",
+    "PublishingUnavailable",
     "SearchResult",
     "SubmissionResult",
     "SubmissionUnconfirmed",

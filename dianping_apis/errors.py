@@ -12,3 +12,7 @@ class ElementMissing(DianpingError):
 
 class SubmissionUnconfirmed(DianpingError):
     """The browser submitted a form but no success signal was observed."""
+
+
+class PublishingUnavailable(DianpingError):
+    """No verified publishing workflow is available on the current platform."""

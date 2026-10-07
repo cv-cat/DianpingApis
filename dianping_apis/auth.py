@@ -47,7 +47,7 @@ class DianpingAuth:
         return self
 
     def login(self, *, timeout_ms: int = 180_000) -> "DianpingAuth":
-        """Show Dianping's own login page and wait for its creator page to open.
+        """Show Dianping's own login page and wait for the requested page.
 
         This method does not handle passwords, SMS codes, or QR contents.  The
         account owner completes those controls in the visible Chrome window.

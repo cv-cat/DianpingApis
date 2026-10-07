@@ -31,6 +31,15 @@ def test_search_extracts_shops_and_deduplicates_links():
     assert "%E5%92%96%E5%95%A1" in page.url
 
 
+def test_search_prefers_shop_name_link_over_review_and_price_links():
+    page = FakePage('''<a href="/shop/123"><img alt="咖啡馆"></a>
+        <a href="/shop/123" data-click-name="shop_title_click"><h4>咖啡馆</h4></a>
+        <a href="/shop/123#comment" data-click-name="shop_iwant_review_click">69 条评价</a>
+        <a href="/shop/123" data-click-name="shop_avgprice_click">人均 ￥15</a>''')
+    result = DianpingAPI(page).search("咖啡")
+    assert result == [type(result[0])("123", "咖啡馆", "https://www.dianping.com/shop/123")]
+
+
 def test_get_shop_parses_visible_mobile_details():
     page = FakePage('''<html><head><meta property="og:title" content="测试咖啡馆">
         <meta name="description" content="北京 · 人均 90 元"></head><body><h1>测试咖啡馆</h1></body></html>''')

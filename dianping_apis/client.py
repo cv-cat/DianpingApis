@@ -72,7 +72,7 @@ class DianpingAPI:
         response = self.page.goto(url, wait_until="domcontentloaded")
         self._check_access(response.status if response is not None else None)
         soup = BeautifulSoup(self.page.content(), "html.parser")
-        found: dict[str, SearchResult] = {}
+        found: dict[str, tuple[int, SearchResult]] = {}
         allowed = {"shop", "note"} if kind == "all" else {kind}
         for anchor in soup.select('a[href*="/shop/"], a[href*="/note/"]'):
             href = str(anchor.get("href", ""))
@@ -86,12 +86,25 @@ class DianpingAPI:
                 continue
             if item_kind not in allowed:
                 continue
-            title = _text(anchor) or str(anchor.get("title", "")).strip()
+            # A single shop has image, name, review-count and price links.
+            # Keep one canonical URL and prefer the actual shop-title anchor.
+            if anchor.get("data-click-name") in {"shop_iwant_review_click", "shop_avgprice_click"}:
+                continue
+            title_node = anchor.select_one("h4")
+            title = _text(title_node) or _text(anchor) or str(anchor.get("title", "")).strip()
+            if not title:
+                picture = anchor.select_one("img[alt]")
+                title = str(picture.get("alt", "")).strip() if picture else ""
+            if title.startswith("人均") or re.fullmatch(r"[\d,]+\s*条评价", title):
+                continue
             if title:
-                found[href] = SearchResult(item_id, title, href)
+                canonical = f"https://www.dianping.com/{item_kind}/{item_id}"
+                priority = 3 if anchor.get("data-click-name") == "shop_title_click" or title_node else 1
+                if canonical not in found or priority > found[canonical][0]:
+                    found[canonical] = (priority, SearchResult(item_id, title, canonical))
         if not found and ("打开大众点评App" in str(soup) or "去APP查看" in str(soup)):
             raise ElementMissing("This search page only offered the Dianping App")
-        return list(found.values())
+        return [item for _, item in found.values()]
 
     def get_item(self, url: str) -> Item:
         """Read a shop, review or note URL supplied by the caller."""

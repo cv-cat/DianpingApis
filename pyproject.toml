@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dianping-apis"
 version = "0.1.0"
-description = "Dianping browser API client for search, items, and creator workflows"
+description = "Dianping browser client for login, search, and item pages"
 requires-python = ">=3.10"
 dependencies = ["playwright>=1.50,<2", "beautifulsoup4>=4.12,<5"]
 
