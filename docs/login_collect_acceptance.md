@@ -17,7 +17,10 @@
 ## 测试
 
 ```text
-python -m pytest -q   # 18 passed
+python -m pytest -q   # 23 passed
 ```
+
+缺少当前登录页生成的 `h5_fingerprint` 或 `mtgsig` 时，二维码与 `login()`
+入口会抛 `H5GuardRequired`；两个公开 cache-token 请求仍可在游客态执行。
 
 测试使用本地假的 HTTP 响应，只验证请求参数、响应解析和状态判断，不触发真实账号写入。
