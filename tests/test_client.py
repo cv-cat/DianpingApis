@@ -7,13 +7,14 @@ from dianping_apis.client import _validate_item_url
 
 
 class FakePage:
-    def __init__(self, html, *, status=200):
+    def __init__(self, html, *, status=200, redirect_to=None):
         self.html = html
         self.status = status
         self.url = "about:blank"
+        self.redirect_to = redirect_to
 
     def goto(self, url, **_kwargs):
-        self.url = url
+        self.url = self.redirect_to or url
         return SimpleNamespace(status=self.status)
 
     def content(self):
@@ -71,3 +72,11 @@ def test_item_url_is_confined_to_dianping():
         _validate_item_url("https://evil.example/shop/1")
     with pytest.raises(ValueError):
         _validate_item_url("http://www.dianping.com/shop/1")
+    with pytest.raises(ValueError, match="not a note item"):
+        _validate_item_url("https://www.dianping.com/note/create")
+
+
+def test_item_redirect_to_homepage_does_not_return_homepage_as_shop():
+    page = FakePage("<title>大众点评网 - 发现好去处</title>", redirect_to="https://m.dianping.com/")
+    with pytest.raises(ElementMissing, match="redirected"):
+        DianpingAPI(page).get_shop("563754")

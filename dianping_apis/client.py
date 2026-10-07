@@ -28,6 +28,8 @@ def _validate_item_url(url: str) -> tuple[str, str]:
     match = ITEM_PATH.match(parts.path)
     if match is None:
         raise ValueError("item URL path must start with /shop/, /note/, or /review/")
+    if match.group(1) == "note" and match.group(2) == "create":
+        raise ValueError("/note/create is not a note item")
     return match.group(1), match.group(2)
 
 
@@ -111,6 +113,12 @@ class DianpingAPI:
         kind, item_id = _validate_item_url(url)
         response = self.page.goto(url, wait_until="domcontentloaded")
         self._check_access(response.status if response is not None else None)
+        try:
+            actual_kind, actual_id = _validate_item_url(self.page.url)
+        except ValueError as exc:
+            raise ElementMissing("The item URL redirected to a page without item details") from exc
+        if (actual_kind, actual_id) != (kind, item_id):
+            raise ElementMissing("The item URL redirected to a different item")
         soup = BeautifulSoup(self.page.content(), "html.parser")
         title = (
             _text(soup.select_one(".shopName")) if kind == "shop" else ""

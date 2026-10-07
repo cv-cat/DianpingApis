@@ -49,7 +49,7 @@ creator.publish_review(
 )
 ```
 
-`from_cookie(cookie_header)` 可导入自己已有的 Cookie；不会把 Cookie 写进源代码或日志。导入后也需确认账号实际登录。`get_item()` 仅接受大众点评 HTTPS 店铺、笔记、点评链接。
+`from_cookie(cookie_header)` 可导入自己已有的 Cookie；不会把 Cookie 写进源代码或日志。导入后也需确认账号实际登录。`get_item()` 仅接受大众点评 HTTPS 店铺、笔记、点评链接；目标跳转到其他页面或其他 Item 时会报错，`/note/create` 不视为笔记 Item。
 
 ## 现有证据与限制
 
