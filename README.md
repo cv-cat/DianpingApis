@@ -9,7 +9,7 @@
 | 能力 | 入口 | 当前状态 |
 | --- | --- | --- |
 | 登录 | `DianpingAuth.login()` 打开官网登录页，由用户在浏览器扫码或输入；`from_cookie()` 导入自有 Cookie | 本人 Chrome 的[扫码请求链](docs/qr_login.md)已核对；用临时浏览器配置导入当前登录态，`require_login()` 实测通过，匿名配置被阻断。独立窗口里直接扫码的流程尚未复测 |
-| 搜索 | `DianpingAPI.search()` 解析店铺搜索页；`kind="note"` 筛选官方内容精选流第一页的标题 | 登录态店铺搜索实测返回 15 条；公开内容精选流里“咖啡”匹配 2 条。笔记路径只筛选当前精选流，不是全站关键词搜索 |
+| 搜索 | `DianpingAPI.search()` 解析店铺搜索页；`kind="note"` 筛选官方内容精选流，可用 `category_id` 和 `page` 访问分类页 | 登录态店铺搜索实测返回 15 条；公开内容精选流里“咖啡”匹配 2 条。笔记路径是官方精选流标题筛选，不是全站关键词搜索 |
 | Item | `get_shop()`、`get_item()` 读取店铺及内容精选笔记 | 店铺 Item 实测 ID 匹配、标题和描述非空；公开内容精选页的笔记 Item 实测 ID 匹配、标题及正文非空。`/note/{id}` 与 `/review/{id}` 的独立详情仍受网页验证限制 |
 | 探店笔记 | `DianpingCreatorAPI.publish_note()` | `/note/create` 实为笔记详情路由，不是编辑器；方法抛 `PublishingUnavailable`。App 发布流程待对接 |
 | 店铺点评 | `DianpingCreatorAPI.publish_review()` | 登录网页店铺页提示打开 App，没有写点评控件；方法抛 `PublishingUnavailable` |
@@ -51,16 +51,18 @@ creator.publish_review(
 
 `from_cookie(cookie_header)` 可导入自己已有的 Cookie；不会把 Cookie 写进源代码或日志。导入后也需确认账号实际登录。`get_item()` 仅接受大众点评 HTTPS 店铺、笔记、点评及内容精选详情链接；目标跳转到其他页面或其他 Item 时会报错，`/note/create` 不视为笔记 Item。
 
-读取官方内容精选流第一页的笔记：
+读取官方内容精选流的笔记（也可指定分类与页码）：
 
 ```python
 notes = api.search("咖啡", kind="note")
+# notes = api.search("咖啡", kind="note")  # 默认精选流第一页
+# notes = api.search_notes("咖啡", category_id=10, page=2)
 if notes:
     note = api.get_item(notes[0].url)
     print(note.title, note.content)
 ```
 
-该路径读取 `https://www.dianping.com/discovery/` 列表与 `https://m.dianping.com/discovery/{id}` 详情。只在列表页现有条目中过滤标题；页面结构变化时会抛 `ElementMissing`，不会把通用落地页当笔记详情。
+该路径读取 `https://www.dianping.com/discovery/` 或分类页 `https://www.dianping.com/discovery/a/{category_id}`，页码大于 1 时追加 `/p{page}`，再读取 `https://m.dianping.com/discovery/{id}` 详情。只在当前官方精选流页现有条目中过滤标题；这不是全站笔记搜索。页面结构变化时会抛 `ElementMissing`，不会把通用落地页当笔记详情。
 
 只需运行一次采集、不希望留下浏览器配置时，可以在临时内存配置中导入本人当前会话的 Cookie：
 

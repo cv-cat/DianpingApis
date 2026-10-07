@@ -112,3 +112,15 @@ def test_generic_review_landing_is_not_item_detail():
     page = FakePage('<title>大众点评网 - 发现好去处</title><h1>推荐内容</h1>')
     with pytest.raises(ElementMissing, match="did not expose item details"):
         DianpingAPI(page).get_item("https://www.dianping.com/review/123")
+
+
+def test_discovery_note_search_supports_category_and_page():
+    page = FakePage('''<script>window.__dx_dump__={"dump":{"3":{"feedList":[7]},
+        "7":{"contentId":123,"titleInfo":{"title":"咖啡探店"}}},"entries":[]};</script>''')
+    api = DianpingAPI(page)
+    assert api.search_notes("咖啡", category_id=10, page=2)[0].id == "123"
+    assert page.url == "https://www.dianping.com/discovery/a/10/p2"
+    with pytest.raises(ValueError):
+        api.search_notes("咖啡", category_id=0)
+    with pytest.raises(ValueError):
+        api.search_notes("咖啡", page=0)

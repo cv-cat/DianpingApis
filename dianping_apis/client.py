@@ -22,6 +22,7 @@ ITEM_PATH = re.compile(r"^/(shop|note|review)/([^/?#]+)$")
 DISCOVERY_PATH = re.compile(r"^/discovery/(\d+)$")
 SEARCH_URL = "https://www.dianping.com/search/keyword/{city_id}/0_{keyword}"
 DISCOVERY_URL = "https://www.dianping.com/discovery/"
+DISCOVERY_CATEGORY_URL = "https://www.dianping.com/discovery/a/{category_id}"
 
 
 def _validate_item_url(url: str) -> tuple[str, str]:
@@ -148,11 +149,24 @@ class DianpingAPI:
             raise ElementMissing("This search page only offered the Dianping App")
         return [item for _, item in found.values()]
 
-    def search_notes(self, keyword: str) -> list[SearchResult]:
-        """Filter titles in the first official discovery feed page only."""
+    def search_notes(
+        self, keyword: str, *, category_id: int | None = None, page: int = 1
+    ) -> list[SearchResult]:
+        """Filter titles on one official discovery page, optionally a category page."""
         if not keyword.strip():
             raise ValueError("keyword is empty")
-        response = self.page.goto(DISCOVERY_URL, wait_until="domcontentloaded")
+        if category_id is not None and category_id <= 0:
+            raise ValueError("category_id must be positive")
+        if page <= 0:
+            raise ValueError("page must be positive")
+        url = (
+            DISCOVERY_CATEGORY_URL.format(category_id=category_id)
+            if category_id is not None
+            else DISCOVERY_URL
+        )
+        if page > 1:
+            url = url.rstrip("/") + f"/p{page}"
+        response = self.page.goto(url, wait_until="domcontentloaded")
         self._check_access(response.status if response is not None else None)
         return _discovery_results(self.page.content(), keyword.strip())
 
