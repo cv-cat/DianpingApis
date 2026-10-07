@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from dianping_apis import AccessRequired, DianpingAuth
-from dianping_apis.auth import CACHE_TOKEN_P_URL, CACHE_TOKEN_URL, CHECK_LOGIN_URL, QR_IMAGE_URL
+from dianping_apis import AccessRequired, DianpingAuth, H5GuardRequired
+from dianping_apis.auth import CACHE_TOKEN_P_URL, CACHE_TOKEN_URL, CHECK_LOGIN_URL, QR_CHECK_URL, QR_IMAGE_URL
 
 
 class CookieJar:
@@ -68,7 +68,7 @@ def test_qr_start_requires_real_h5guard_values_and_keeps_image_in_memory():
     session = Session([Response(content=b"jpeg", headers={"content-type": "image/jpeg"})])
     session.cookies.set("qruuid", "uuid-1")
     auth = DianpingAuth(session=session)
-    with pytest.raises(ValueError):
+    with pytest.raises(H5GuardRequired, match="h5_fingerprint"):
         auth.start_qr_login(h5_fingerprint="", mtgsig="sig")
     challenge = auth.start_qr_login(h5_fingerprint="fp", mtgsig="sig")
     assert challenge.qruuid == "uuid-1"
@@ -113,6 +113,16 @@ def test_guest_bootstrap_can_stop_before_h5guard_check():
     assert [call[1] for call in session.calls] == [CACHE_TOKEN_URL, CACHE_TOKEN_P_URL]
 
 
+def test_guest_bootstrap_rejects_partial_h5guard_evidence_explicitly():
+    responses = [
+        Response(text="cache-a", url=CACHE_TOKEN_URL),
+        Response(text="cache-b", url=CACHE_TOKEN_P_URL),
+    ]
+    auth = DianpingAuth(session=Session(responses))
+    with pytest.raises(H5GuardRequired, match="both current"):
+        auth.bootstrap_guest(h5_fingerprint="fp")
+
+
 def test_qr_poll_reads_nested_browser_status_and_keeps_parameter_order():
     waiting = Response(
         url="https://accountapi.dianping.com/mlogin/dp/api/v1/qrlogin/check",
@@ -139,5 +149,17 @@ def test_qr_poll_reads_nested_browser_status_and_keeps_parameter_order():
 
 def test_login_does_not_open_browser_or_guess_signature():
     auth = DianpingAuth(session=Session([]))
-    with pytest.raises(AccessRequired, match="H5guard"):
+    with pytest.raises(H5GuardRequired, match="H5guard"):
         auth.login()
+
+
+def test_qr_poll_empty_signature_callback_is_explicit_h5guard_error():
+    auth = DianpingAuth(session=Session([]))
+    challenge = type("Challenge", (), {"qruuid": "uuid-1", "check_url": QR_CHECK_URL})()
+    with pytest.raises(H5GuardRequired, match="mtgsig"):
+        auth.poll_qr_login(
+            challenge,
+            h5_fingerprint="fp",
+            mtgsig=lambda _qruuid: "",
+            timeout=0.1,
+        )

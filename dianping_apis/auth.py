@@ -17,7 +17,7 @@ from urllib.parse import urljoin
 
 import requests
 
-from .errors import AccessRequired, DianpingError
+from .errors import AccessRequired, DianpingError, H5GuardRequired
 
 
 NOTE_URL = "https://www.dianping.com/note/create"
@@ -226,7 +226,10 @@ class DianpingAuth:
             result["check_login"] = {"skipped": True, "reason": "h5guard_values_not_supplied"}
             return result
         if not h5_fingerprint or not mtgsig:
-            raise ValueError("h5_fingerprint and mtgsig must be supplied together")
+            raise H5GuardRequired(
+                "Dianping checkLogin requires both current h5_fingerprint and mtgsig "
+                "from the normal login page"
+            )
 
         # DevTools shows the signature in the query string for this POST.  It
         # is not the same placement as the QR image/check requests, which use
@@ -280,7 +283,10 @@ class DianpingAuth:
     ) -> QRLoginChallenge:
         """Request a QR image using caller-supplied H5guard evidence."""
         if not h5_fingerprint.strip() or not mtgsig.strip():
-            raise ValueError("h5_fingerprint and mtgsig are required")
+            raise H5GuardRequired(
+                "Dianping QR login requires current h5_fingerprint and mtgsig "
+                "from the normal login page"
+            )
         # Keep this sequence identical to the observed browser URL.  A plain
         # dict currently preserves insertion order on CPython, but a tuple
         # list makes that contract explicit for alternate clients/tests.
@@ -338,12 +344,16 @@ class DianpingAuth:
     ) -> Mapping[str, Any]:
         """Poll after the user scans in the official Dianping app."""
         if not h5_fingerprint.strip():
-            raise ValueError("h5_fingerprint is required")
+            raise H5GuardRequired(
+                "Dianping QR polling requires current h5_fingerprint from the normal login page"
+            )
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             signature = mtgsig(challenge.qruuid) if callable(mtgsig) else mtgsig
             if not signature or not str(signature).strip():
-                raise ValueError("mtgsig callback returned an empty signature")
+                raise H5GuardRequired(
+                    "Dianping QR polling requires a current mtgsig value for each request"
+                )
             params = _ordered_params(
                 qruuid=challenge.qruuid,
                 risk_app=risk_app,
@@ -396,7 +406,7 @@ class DianpingAuth:
         if kwargs:
             raise TypeError(f"unexpected login arguments: {', '.join(sorted(kwargs))}")
         if not fingerprint or not signature:
-            raise AccessRequired(
+            raise H5GuardRequired(
                 "Dianping QR login is protected by H5guard; supply h5_fingerprint and mtgsig "
                 "from the normal login challenge, then poll_qr_login after scanning"
             )

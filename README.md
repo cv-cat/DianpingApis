@@ -68,6 +68,8 @@ auth.require_login()
 `getQrCodeImg` 和 `check` 则按浏览器把签名放在 `mtgsig` 请求头，并保留
 `risk_app,risk_partner,risk_platform,h5_fingerprint,yodaReady,csecplatform,csecversion`
 顺序。动态 H5guard 指纹/签名仍需由正常登录页提供，代码不会根据长度或旧版本公式生成。
+只传其中一个值会抛 `H5GuardRequired`；二维码开始、轮询和 `login()` 缺少动态值也会
+抛这个明确异常，便于调用方区分“尚未提供当前页面证据”和 Cookie 失效/验证墙。
 
 若每次轮询都需要新签名，可传入 `mtgsig(qruuid) -> str` 回调。二维码和轮询响应只保存在内存中；不会自动扫描、代填短信或处理人机验证。
 

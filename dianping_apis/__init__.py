@@ -3,7 +3,14 @@
 from .auth import DianpingAuth, QRLoginChallenge
 from .client import DianpingAPI
 from .creator import DianpingCreatorAPI
-from .errors import AccessRequired, DianpingError, ElementMissing, PublishingUnavailable, SubmissionUnconfirmed
+from .errors import (
+    AccessRequired,
+    DianpingError,
+    ElementMissing,
+    H5GuardRequired,
+    PublishingUnavailable,
+    SubmissionUnconfirmed,
+)
 from .models import Item, SearchResult, SubmissionResult
 
 __all__ = [
@@ -14,6 +21,7 @@ __all__ = [
     "DianpingCreatorAPI",
     "DianpingError",
     "ElementMissing",
+    "H5GuardRequired",
     "Item",
     "PublishingUnavailable",
     "SearchResult",

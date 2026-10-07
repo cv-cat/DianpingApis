@@ -6,6 +6,10 @@ class AccessRequired(DianpingError):
     """The page requires account login or an interactive verification."""
 
 
+class H5GuardRequired(AccessRequired):
+    """Current login-page H5guard evidence is required for this request."""
+
+
 class ElementMissing(DianpingError):
     """The current page does not have the expected control or result."""
 
