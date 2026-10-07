@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from dianping_apis import AccessRequired, DianpingAuth
-from dianping_apis.auth import QR_IMAGE_URL
+from dianping_apis.auth import CACHE_TOKEN_P_URL, CACHE_TOKEN_URL, CHECK_LOGIN_URL, QR_IMAGE_URL
 
 
 class CookieJar:
@@ -75,8 +75,66 @@ def test_qr_start_requires_real_h5guard_values_and_keeps_image_in_memory():
     assert challenge.image == b"jpeg"
     assert challenge.image_data_url.startswith("data:image/jpeg;base64,")
     assert session.calls[0][1] == QR_IMAGE_URL
-    assert session.calls[0][2]["params"]["risk_app"] == 216
+    assert [name for name, _ in session.calls[0][2]["params"]] == [
+        "risk_app",
+        "risk_partner",
+        "risk_platform",
+        "h5_fingerprint",
+        "yodaReady",
+        "csecplatform",
+        "csecversion",
+    ]
+    assert session.calls[0][2]["params"][0] == ("risk_app", "216")
     assert session.calls[0][2]["headers"]["mtgsig"] == "sig"
+
+
+def test_guest_bootstrap_matches_cache_token_then_check_login_contract():
+    responses = [
+        Response(text="cache-a", url=CACHE_TOKEN_URL),
+        Response(text="cache-b", url=CACHE_TOKEN_P_URL),
+        Response(text='{"login":false}', url=CHECK_LOGIN_URL, json_data={"login": False}),
+    ]
+    session = Session(responses)
+    auth = DianpingAuth(session=session)
+    result = auth.bootstrap_guest(h5_fingerprint="fp", mtgsig='{"a1":"x"}')
+    assert result["check_login"] == {"login": False}
+    assert [call[1] for call in session.calls] == [CACHE_TOKEN_URL, CACHE_TOKEN_P_URL, CHECK_LOGIN_URL]
+    method, url, kwargs = session.calls[2]
+    assert method == "POST"
+    assert [name for name, _ in kwargs["params"]] == ["yodaReady", "csecplatform", "csecversion", "mtgsig"]
+    assert kwargs["data"] == b""
+    assert kwargs["headers"]["Origin"] == "https://account.dianping.com"
+
+
+def test_guest_bootstrap_can_stop_before_h5guard_check():
+    session = Session([Response(text="cache-a", url=CACHE_TOKEN_URL), Response(text="cache-b", url=CACHE_TOKEN_P_URL)])
+    result = DianpingAuth(session=session).bootstrap_guest()
+    assert result["check_login"]["skipped"] is True
+    assert [call[1] for call in session.calls] == [CACHE_TOKEN_URL, CACHE_TOKEN_P_URL]
+
+
+def test_qr_poll_reads_nested_browser_status_and_keeps_parameter_order():
+    waiting = Response(
+        url="https://accountapi.dianping.com/mlogin/dp/api/v1/qrlogin/check",
+        json_data={"code": 0, "data": {"status": 200, "description": "用户未扫描二维码"}},
+    )
+    session = Session([waiting] * 10)
+    session.cookies.set("qruuid", "uuid-1")
+    auth = DianpingAuth(session=session)
+    challenge = type("Challenge", (), {"qruuid": "uuid-1", "check_url": "https://accountapi.dianping.com/mlogin/dp/api/v1/qrlogin/check"})()
+    with pytest.raises(TimeoutError):
+        auth.poll_qr_login(challenge, h5_fingerprint="fp", mtgsig="sig", interval=0.05, timeout=0.06)
+    params = session.calls[0][2]["params"]
+    assert [name for name, _ in params] == [
+        "qruuid",
+        "risk_app",
+        "risk_partner",
+        "risk_platform",
+        "h5_fingerprint",
+        "yodaReady",
+        "csecplatform",
+        "csecversion",
+    ]
 
 
 def test_login_does_not_open_browser_or_guess_signature():

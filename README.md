@@ -7,7 +7,8 @@
 | 能力 | 入口 | 状态 |
 | --- | --- | --- |
 | Cookie 登录态 | `DianpingAuth.from_cookie()` | 通过 `GET /note/create` 检查跳转、验证墙和状态码 |
-| 二维码登录 | `start_qr_login()`、`poll_qr_login()` | 已对齐二维码图片与轮询路由；调用方必须提供正常登录链路产生的 `h5_fingerprint`、`mtgsig`，扫码由用户在官方 App 完成 |
+| 游客态 bootstrap | `bootstrap_guest()` | 按浏览器顺序读取 `cache-token`、`cache-token-p`；拿到 H5guard 动态值时按浏览器字段调用 `checkLogin` |
+| 二维码登录 | `start_qr_login()`、`poll_qr_login()` | 已对齐二维码图片与轮询路由、参数顺序和请求头；调用方必须提供正常登录链路产生的 `h5_fingerprint`、`mtgsig`，扫码由用户在官方 App 完成 |
 | 店铺搜索 | `DianpingAPI.search()` | HTTP 解析店铺结果；遇到登录、验证或 App 落地页抛出明确异常 |
 | 精选笔记采集 | `search_notes()`、`get_item()` | 读取官方 discovery feed 和笔记详情；这是精选流筛选，不是全站关键词接口 |
 | 店铺/点评 Item | `get_shop()`、`get_item()` | 依赖页面返回可解析详情；验证墙会抛 `AccessRequired` |
@@ -45,6 +46,8 @@ if shops:
 
 ```python
 auth = DianpingAuth()
+# 先建立与浏览器相同的匿名登录页上下文。没有 H5guard 值时只执行两个公开 cache-token 请求。
+auth.bootstrap_guest()
 challenge = auth.start_qr_login(
     h5_fingerprint=current_fingerprint,
     mtgsig=current_signature,
@@ -58,6 +61,13 @@ result = auth.poll_qr_login(
 )
 auth.require_login()
 ```
+
+`bootstrap_guest(h5_fingerprint=..., mtgsig=...)` 还会发送浏览器观察到的
+`POST https://m.dianping.com/account/ajax/checkLogin`：查询参数顺序固定为
+`yodaReady,csecplatform,csecversion,mtgsig`，请求体为空，签名位于查询参数；二维码
+`getQrCodeImg` 和 `check` 则按浏览器把签名放在 `mtgsig` 请求头，并保留
+`risk_app,risk_partner,risk_platform,h5_fingerprint,yodaReady,csecplatform,csecversion`
+顺序。动态 H5guard 指纹/签名仍需由正常登录页提供，代码不会根据长度或旧版本公式生成。
 
 若每次轮询都需要新签名，可传入 `mtgsig(qruuid) -> str` 回调。二维码和轮询响应只保存在内存中；不会自动扫描、代填短信或处理人机验证。
 
