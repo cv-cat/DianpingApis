@@ -1,6 +1,6 @@
-"""Dianping browser API wrappers and explicit publishing boundaries."""
+"""Dianping HTTP APIs and explicit publishing boundaries."""
 
-from .auth import DianpingAuth
+from .auth import DianpingAuth, QRLoginChallenge
 from .client import DianpingAPI
 from .creator import DianpingCreatorAPI
 from .errors import AccessRequired, DianpingError, ElementMissing, PublishingUnavailable, SubmissionUnconfirmed
@@ -10,6 +10,7 @@ __all__ = [
     "AccessRequired",
     "DianpingAPI",
     "DianpingAuth",
+    "QRLoginChallenge",
     "DianpingCreatorAPI",
     "DianpingError",
     "ElementMissing",

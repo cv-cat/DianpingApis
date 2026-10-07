@@ -1,10 +1,10 @@
-"""Read-only consumer site operations using a user-controlled browser page."""
+"""Read-only Dianping consumer operations over a requests session."""
 
 from __future__ import annotations
 
 import json
 import re
-from typing import TYPE_CHECKING
+from typing import Any
 from urllib.parse import quote, urlparse
 
 from bs4 import BeautifulSoup
@@ -12,9 +12,6 @@ from bs4 import BeautifulSoup
 from .auth import DianpingAuth
 from .errors import AccessRequired, ElementMissing
 from .models import Item, SearchResult
-
-if TYPE_CHECKING:
-    from playwright.sync_api import Page
 
 
 SHOP_PATH = re.compile(r"^/shop/([^/?#]+)")
@@ -84,22 +81,50 @@ def _discovery_item(html: str, url: str, item_id: str) -> Item:
 
 
 class DianpingAPI:
-    """Browser wrapper for shop search and item pages.
+    """Pure HTTP client for shop search, discovery feeds and item pages."""
 
-    The public search route is protected in some environments.  This class
-    reports the verification wall instead of returning it as an empty result.
-    """
+    def __init__(self, auth_or_session: DianpingAuth | Any):
+        self.auth = auth_or_session if isinstance(auth_or_session, DianpingAuth) else DianpingAuth(session=auth_or_session)
 
-    def __init__(self, auth_or_page: DianpingAuth | "Page"):
-        self.page = auth_or_page.require_page() if isinstance(auth_or_page, DianpingAuth) else auth_or_page
+    @staticmethod
+    def _status(response: Any) -> int:
+        return int(getattr(response, "status_code", getattr(response, "status", 0)) or 0)
 
-    def _check_access(self, status: int | None = None) -> None:
-        url = self.page.url
-        if status in {401, 403, 429} or "verify.meituan.com" in url or "account.dianping.com" in url:
-            raise AccessRequired(f"Dianping asked for login or verification at {url}")
-        html = self.page.content()
-        if "验证中心" in html or "人机验证" in html:
-            raise AccessRequired("Dianping search requested interactive verification")
+    @staticmethod
+    def _url(response: Any) -> str:
+        return str(getattr(response, "url", "") or "")
+
+    @staticmethod
+    def _text_response(response: Any) -> str:
+        text = getattr(response, "text", None)
+        if isinstance(text, str):
+            return text
+        raw = getattr(response, "content", b"")
+        return raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+
+    def _check_access(self, response: Any) -> None:
+        status = self._status(response)
+        url = self._url(response).lower()
+        headers = getattr(response, "headers", {}) or {}
+        location = str(headers.get("location", "")).lower()
+        text = self._text_response(response)
+        history = getattr(response, "history", ()) or ()
+        if (
+            status in {401, 403, 429}
+            or "verify.meituan.com" in url
+            or "account.dianping.com" in url
+            or "verify.meituan.com" in location
+            or "account.dianping.com" in location
+            or any("account.dianping.com" in self._url(item).lower() for item in history)
+            or any("verify.meituan.com" in self._url(item).lower() for item in history)
+            or any(marker in text for marker in ("验证中心", "人机验证", "滑块验证"))
+        ):
+            raise AccessRequired(f"Dianping asked for login or verification at {self._url(response)}")
+
+    def _get(self, url: str) -> Any:
+        response = self.auth.request("GET", url, allow_redirects=True)
+        self._check_access(response)
+        return response
 
     def search(self, keyword: str, *, city_id: int = 1, kind: str = "shop") -> list[SearchResult]:
         """Search shops, or filter notes in the current discovery feed."""
@@ -111,10 +136,8 @@ class DianpingAPI:
             raise ValueError("kind must be shop, note, or all")
         if kind == "note":
             return self.search_notes(keyword)
-        url = SEARCH_URL.format(city_id=city_id, keyword=quote(keyword.strip(), safe=""))
-        response = self.page.goto(url, wait_until="domcontentloaded")
-        self._check_access(response.status if response is not None else None)
-        soup = BeautifulSoup(self.page.content(), "html.parser")
+        response = self._get(SEARCH_URL.format(city_id=city_id, keyword=quote(keyword.strip(), safe="")))
+        soup = BeautifulSoup(self._text_response(response), "html.parser")
         found: dict[str, tuple[int, SearchResult]] = {}
         allowed = {"shop", "note"} if kind == "all" else {kind}
         for anchor in soup.select('a[href*="/shop/"], a[href*="/note/"]'):
@@ -129,8 +152,6 @@ class DianpingAPI:
                 continue
             if item_kind not in allowed:
                 continue
-            # A single shop has image, name, review-count and price links.
-            # Keep one canonical URL and prefer the actual shop-title anchor.
             if anchor.get("data-click-name") in {"shop_iwant_review_click", "shop_avgprice_click"}:
                 continue
             title_node = anchor.select_one("h4")
@@ -149,54 +170,45 @@ class DianpingAPI:
             raise ElementMissing("This search page only offered the Dianping App")
         return [item for _, item in found.values()]
 
-    def search_notes(
-        self, keyword: str, *, category_id: int | None = None, page: int = 1
-    ) -> list[SearchResult]:
-        """Filter titles on one official discovery page, optionally a category page."""
+    def search_notes(self, keyword: str, *, category_id: int | None = None, page: int = 1) -> list[SearchResult]:
+        """Filter titles on one official discovery page."""
         if not keyword.strip():
             raise ValueError("keyword is empty")
         if category_id is not None and category_id <= 0:
             raise ValueError("category_id must be positive")
         if page <= 0:
             raise ValueError("page must be positive")
-        url = (
-            DISCOVERY_CATEGORY_URL.format(category_id=category_id)
-            if category_id is not None
-            else DISCOVERY_URL
-        )
+        url = DISCOVERY_CATEGORY_URL.format(category_id=category_id) if category_id is not None else DISCOVERY_URL
         if page > 1:
             url = url.rstrip("/") + f"/p{page}"
-        response = self.page.goto(url, wait_until="domcontentloaded")
-        self._check_access(response.status if response is not None else None)
-        return _discovery_results(self.page.content(), keyword.strip())
+        return _discovery_results(self._get(url).text, keyword.strip())
 
     def get_item(self, url: str) -> Item:
         """Read a shop, review or note URL supplied by the caller."""
         kind, item_id = _validate_item_url(url)
-        response = self.page.goto(url, wait_until="domcontentloaded")
-        self._check_access(response.status if response is not None else None)
+        response = self._get(url)
+        actual_url = self._url(response) or url
         try:
-            actual_kind, actual_id = _validate_item_url(self.page.url)
+            actual_kind, actual_id = _validate_item_url(actual_url)
         except ValueError as exc:
             raise ElementMissing("The item URL redirected to a page without item details") from exc
         if (actual_kind, actual_id) != (kind, item_id):
             raise ElementMissing("The item URL redirected to a different item")
-        if DISCOVERY_PATH.fullmatch(urlparse(self.page.url).path):
-            return _discovery_item(self.page.content(), self.page.url, item_id)
-        soup = BeautifulSoup(self.page.content(), "html.parser")
+        html = self._text_response(response)
+        if DISCOVERY_PATH.fullmatch(urlparse(actual_url).path):
+            return _discovery_item(html, actual_url, item_id)
+        soup = BeautifulSoup(html, "html.parser")
         page_title = _text(soup.title)
         if "发现好去处" in page_title or "客户端官方下载中心" in page_title:
-            raise ElementMissing("This page did not expose item details; try an authenticated browser session")
-        title = (
-            _text(soup.select_one(".shopName")) if kind == "shop" else ""
-        ) or _meta(soup, "og:title") or _text(soup.select_one("h1"))
+            raise ElementMissing("This page did not expose item details; try an authenticated HTTP session")
+        title = (_text(soup.select_one(".shopName")) if kind == "shop" else "") or _meta(soup, "og:title") or _text(soup.select_one("h1"))
         if not title and kind == "shop":
             title = _meta(soup, "keywords").split(",", 1)[0].strip()
         title = title or page_title
         description = _meta(soup, "og:description") or _meta(soup, "description")
         if not title or title in {"大众点评", "大众点评APP"} or "客户端官方下载中心" in title or "发现好去处" in title:
-            raise ElementMissing("This page did not expose item details; try an authenticated browser session")
-        return Item(item_id, kind, title, self.page.url, description)
+            raise ElementMissing("This page did not expose item details; try an authenticated HTTP session")
+        return Item(item_id, kind, title, actual_url, description)
 
     def get_shop(self, shop_id: str) -> Item:
         if not re.fullmatch(r"[A-Za-z0-9]+", shop_id):

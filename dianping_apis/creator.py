@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 
 from .auth import DianpingAuth
 from .client import _validate_item_url
 from .errors import PublishingUnavailable
 from .models import SubmissionResult
-
-if TYPE_CHECKING:
-    from playwright.sync_api import Page
-
 
 class DianpingCreatorAPI:
     """Explicit publishing API boundary for the account owner's content.
@@ -22,7 +18,7 @@ class DianpingCreatorAPI:
     treats `create` as a note ID, not an editor route.
     """
 
-    def __init__(self, auth_or_page: DianpingAuth | "Page"):
+    def __init__(self, auth_or_page: DianpingAuth):
         self.auth_or_page = auth_or_page
 
     def publish_note(

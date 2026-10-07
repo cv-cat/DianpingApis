@@ -1,5 +1,5 @@
 class DianpingError(RuntimeError):
-    """Base error for a Dianping browser operation."""
+    """Base error for a Dianping HTTP operation."""
 
 
 class AccessRequired(DianpingError):
