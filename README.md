@@ -103,4 +103,4 @@ python -m pytest -q
 
 测试覆盖 Cookie 解析、登录/验证墙识别、二维码请求契约、店铺搜索、精选流分页、笔记详情及 URL 约束；测试使用假的 HTTP 响应，不启动外部程序、不发布内容。
 
-更多观察记录见 [`docs/qr_login.md`](docs/qr_login.md) 和 [`docs/login_collect_acceptance.md`](docs/login_collect_acceptance.md)。
+更多观察记录见 [`docs/qr_login.md`](docs/qr_login.md)、[`docs/login_collect_acceptance.md`](docs/login_collect_acceptance.md) 和 [`docs/dianping_slider_capture_20261011.md`](docs/dianping_slider_capture_20261011.md)。
