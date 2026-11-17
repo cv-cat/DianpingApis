@@ -23,3 +23,20 @@
 ```text
 python -m pytest -q  # 23 passed
 ```
+
+## 更新（2026-11-18）：mtgsig 纯算实测闭环
+
+上述「不能得到与当前 H5guard.sign() 相同的 a6」结论在特定条件下已被修正：
+
+- 本地 runner（vm2 + catchvm 补环境 + 上游 H5guard VMP 1.10.3 包体）可以稳定产出
+  结构完整的 `mtgsig`（`a1/a2/a3/a5/a6/x0/d1`），a3/a6 会话内稳定，a2/a5/d1 轮换，
+  与页面观察一致。
+- 服务端实测验收：`getQrCodeImg` 返回 200 image/jpeg 并设置 `qruuid`；
+  `qrlogin/check`（**参数名为 `qruuid`，不是 `uuid`**）返回 200 JSON（等待扫码状态）。
+  该 QR 图接口对 `h5_fingerprint` 仅做透传校验，占位值亦可过图；`mtgsig` 请求头是关键。
+- 也就是说：**QR 登录链的纯算签名已经可用**，之前“必须当前页面生成”的限制
+  只对 fingerprint 语义成立，对签名生成不成立（本地 VMP 环境快照已足够）。
+- runner 与证据不在本仓库，位于任务目录
+  `working_dir/headline_dianping_closure_20261118/dp_mtgsig/`（含 FINDINGS.md）。
+- 边界保持不变：仓库代码仍不内置 signer；`H5GuardRequired` 契约不动；
+  发布写入仍无 Web 契约（需 App 抓包或官方文档）。
