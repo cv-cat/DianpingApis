@@ -23,3 +23,22 @@ class SubmissionResult:
     kind: str
     url: str
     confirmation: str
+
+
+@dataclass(frozen=True)
+class Dish:
+    """A dish entry embedded in the mobile shop page."""
+
+    shop_id: str
+    name: str
+    price: float | None = None
+    signature: bool = False
+
+
+@dataclass(frozen=True)
+class Review:
+    """A customer review from the server-rendered review page."""
+
+    shop_id: str
+    time: str | None = None
+    text: str = ""

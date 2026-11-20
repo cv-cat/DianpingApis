@@ -11,19 +11,23 @@ from .errors import (
     PublishingUnavailable,
     SubmissionUnconfirmed,
 )
-from .models import Item, SearchResult, SubmissionResult
+from .models import Dish, Item, Review, SearchResult, SubmissionResult
+from .shop_reader import DianpingShopReader
 
 __all__ = [
     "AccessRequired",
     "DianpingAPI",
     "DianpingAuth",
+    "DianpingShopReader",
     "QRLoginChallenge",
     "DianpingCreatorAPI",
     "DianpingError",
+    "Dish",
     "ElementMissing",
     "H5GuardRequired",
     "Item",
     "PublishingUnavailable",
+    "Review",
     "SearchResult",
     "SubmissionResult",
     "SubmissionUnconfirmed",
